@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Sentence Typing</title>
+    <style>
+        .textbox {
+            width: 300px;
+            height: 50px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>짧은 글 연습하기</h1>
+    <p id="random_sentence">Loading...</p>
+    <form id="sentence_form" autocomplete="off">
+        {% csrf_token %}
+        <input class="textbox" type="text" name="user_sentence" placeholder="문장을 입력하세요" autocomplete="off">
+        <input type="hidden" name="random_sentence" id="hidden_random_sentence">
+        <button type="submit">확인</button>
+    </form>
+    <p id="result"></p>
+    <p id="user_input"></p>
+    <p id="original_sentence"></p>
+    <p id="accuracy"></p>
+    <p id="speed"></p>
+
+    <script>
+        let attemptCount = 0;
+        let startTime;
+
+        function generateRandomSentence() {
+            fetch('/taja/get-random-sentence/')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("random_sentence").innerText = data.random_sentence;
+                    document.getElementById("hidden_random_sentence").value = data.random_sentence;
+                    startTime = new Date();
+                })
+                .catch(error => console.error('서버로부터 새로운 랜덤 문장을 가져오는 데 문제가 발생했습니다.', error));
+        }
+
+        function checkSentence(event) {
+            event.preventDefault();
+            const form = document.getElementById('sentence_form');
+            const formData = new FormData(form);
+
+            fetch('/taja/check-sentence/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_correct !== undefined) {
+                        const endTime = new Date(); // 입력 완료 시간을 기록
+                        const timeTaken = (endTime - startTime) / 1000 / 60; // 분 단위로 시간 계산
+
+                        const userSentence = formData.get('user_sentence');
+                        const originalSentence = formData.get('random_sentence');
+
+                        document.getElementById("user_input").innerText = `당신이 입력한 문장: ${userSentence}`;
+                        document.getElementById("original_sentence").innerText = `원래 문장: ${originalSentence}`;
+
+                        let correctChars = 0;
+                        for (let i = 0; i < Math.min(userSentence.length, originalSentence.length); i++) {
+                            if (userSentence[i] === originalSentence[i]) {
+                                correctChars++;
+                            }
+                        }
+                        const accuracy = (correctChars / originalSentence.length) * 100;
+
+                        const wordsTyped = userSentence.split(' ').length;
+                        const typingSpeed = wordsTyped / timeTaken;
+
+                        document.getElementById("accuracy").innerText = `정확도: ${accuracy.toFixed(2)}%`;
+                        document.getElementById("speed").innerText = `타자 속도: ${typingSpeed.toFixed(2)} WPM`;
+
+                        if (data.is_correct) {
+                            document.getElementById("result").innerText = '정답입니다!';
+                        } else {
+                            document.getElementById("result").innerText = '틀렸습니다.';
+                        }
+
+                        attemptCount++;
+                        if (attemptCount < 5) {
+                            generateRandomSentence();
+                            form.reset();
+                        } else {
+                            document.getElementById("random_sentence").innerText = "문장 입력이 완료되었습니다.";
+
+                            setTimeout(() => {
+                                const retry = confirm("다시 시도하시겠습니까?");
+                                if (retry) {
+                                    attemptCount = 0;
+                                    generateRandomSentence();
+                                    form.reset();
+                                    document.getElementById("result").innerText = '';
+                                    document.getElementById("user_input").innerText = '';
+                                    document.getElementById("original_sentence").innerText = '';
+                                    document.getElementById("accuracy").innerText = '';
+                                    document.getElementById("speed").innerText = '';
+                                } else {
+
+                                    window.location.href = '/taja/';
+                                }
+                            }, 1000);
+                        }
+                    }
+                })
+
+        }
+
+        document.getElementById('sentence_form').addEventListener('submit', checkSentence);
+
+        window.onload = function() {
+            generateRandomSentence();
+        };
+    </script>
+</body>
+</html>

@@ -1,5 +1,4 @@
 # Practaja
-(for teamplay on temp-repo) Implemented using OpenCV and tkinter by the face recognition and filter program
   
 ***2024-1 튜터링 개인 텀프로젝트 - 타자 연습이 가능한 사이트 구현하기 (개발 기간 : 3주일)***
 
